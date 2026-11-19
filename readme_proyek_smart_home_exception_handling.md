@@ -6,9 +6,9 @@ Pengembangan proyek Ujian Tengah Semester (UTS) Pemrograman Berorientasi Objek d
 
 | No | Nama Lengkap | NIM | Akun GitHub |
 | :-: | :--- | :--- | :--- |
-| 1 | `[Isi Nama Anggota 1]` | `[Isi NIM 1]` | `@username1` |
-| 2 | `[Isi Nama Anggota 2]` | `[Isi NIM 2]` | `@username2` |
-| 3 | `[Isi Nama Anggota 3]` | `[Isi NIM 3]` | `@username3` |
+| 1 | `[Made Bayu Ardana Putra]` | `[Isi NIM 1]` | `@username1` |
+| 2 | `[I Putu Satya Darmika]` | `[Isi NIM 2]` | `@username2` |
+| 3 | `[Gusti Gede Agung Rama Putra Udiana]` | `[Isi NIM 3]` | `@username3` |
 
 ---
 

@@ -1,16 +1,27 @@
 from abc import ABC, abstractmethod
 
+from exceptions import (
+    IDPerangkatTidakValidError,
+    PerangkatDuplikatError,
+)
+
 
 class PerangkatPintar(ABC):
     total_perangkat = 0
 
     def __init__(self, id_p: str, nama: str):
         if not PerangkatPintar.validasi_id(id_p):
-            raise ValueError("ID perangkat tidak valid")
+            raise IDPerangkatTidakValidError(
+                f"ID perangkat {id_p!r} tidak valid (wajib string, minimal 2 karakter)"
+            )
         self._id_perangkat = id_p
         self._nama = nama
         self._aktif = False
         PerangkatPintar.total_perangkat += 1
+
+    @property
+    def id_perangkat(self) -> str:
+        return self._id_perangkat
 
     @property
     def aktif(self) -> bool:
@@ -37,6 +48,9 @@ class PerangkatPintar(ABC):
         if isinstance(other, PerangkatPintar):
             return self._id_perangkat == other._id_perangkat
         return False
+
+    def __hash__(self) -> int:
+        return hash(self._id_perangkat)
 
     @staticmethod
     def validasi_id(kode: str) -> bool:
@@ -122,6 +136,12 @@ class Ruangan:
         return self.__nama_ruangan
 
     def tambah_perangkat(self, p: PerangkatPintar) -> None:
+        # Operator `in` memakai __eq__, sehingga duplikat dikenali dari ID perangkat.
+        if p in self.__perangkat_list:
+            raise PerangkatDuplikatError(
+                f"Perangkat dengan ID '{p.id_perangkat}' sudah terpasang "
+                f"di ruangan '{self.__nama_ruangan}'"
+            )
         self.__perangkat_list.append(p)
 
     def info_ruangan(self) -> str:
@@ -180,10 +200,27 @@ if __name__ == "__main__":
     print(r_tamu.info_ruangan())
     print(f"Total Perangkat: {PerangkatPintar.total_perangkat}")
 
+    print("\n=== Pengujian Exception Handling ===")
+
+    # Aturan 1: ID perangkat tidak valid.
+    try:
+        LampuPintar("X", "Lampu Rusak", 50)
+    except IDPerangkatTidakValidError as e:
+        print(f"[ID] {e}")
+        hub.catat_log(f"Gagal membuat perangkat: {e}")
+
     lampu1.kecerahan = 150
     ac1.suhu = 10
 
-    lampu_duplikat = LampuPintar("L01", "Lampu Cadangan", 80)
-    print(f"Apakah L01 sama? {lampu1 == lampu_duplikat}")
+    # Aturan 4: perangkat duplikat dalam satu ruangan.
+    try:
+        lampu_duplikat = LampuPintar("L01", "Lampu Cadangan", 80)
+        r_tamu.tambah_perangkat(lampu_duplikat)
+    except PerangkatDuplikatError as e:
+        print(f"[Duplikat] {e}")
+        hub.catat_log(f"Tambah perangkat ditolak: {e}")
 
+    print(f"\n{r_tamu.info_ruangan()}")
+    # lampu_duplikat valid sebagai objek (hanya ditolak oleh ruangan), jadi ikut terhitung.
+    print(f"Total Perangkat: {PerangkatPintar.total_perangkat}\n")
     hub.lihat_log()

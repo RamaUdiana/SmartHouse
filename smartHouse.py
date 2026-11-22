@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 
 from exceptions import (
     IDPerangkatTidakValidError,
+    NilaiParameterTidakValidError,
     PerangkatDuplikatError,
 )
 
@@ -17,6 +18,8 @@ class PerangkatPintar(ABC):
         self._id_perangkat = id_p
         self._nama = nama
         self._aktif = False
+        # Subclass memvalidasi parameternya sebelum memanggil super().__init__(),
+        # sehingga hanya objek yang lolos semua validasi yang ikut terhitung.
         PerangkatPintar.total_perangkat += 1
 
     @property
@@ -62,11 +65,20 @@ class TimerMixin:
         self._jadwal = jam
 
 
+def _validasi_rentang(nama: str, val, minimum: int, maksimum: int, satuan: str) -> None:
+    # bool adalah subclass int di Python, jadi ditolak secara eksplisit.
+    if isinstance(val, bool) or not isinstance(val, (int, float)):
+        raise NilaiParameterTidakValidError(f"{nama} {val!r} bukan angka")
+    if not minimum <= val <= maksimum:
+        raise NilaiParameterTidakValidError(
+            f"{nama} {val}{satuan} ditolak (wajib {minimum}-{maksimum}{satuan})"
+        )
+
+
 class LampuPintar(PerangkatPintar):
     def __init__(self, id_p: str, nama: str, kecerahan: int):
-        super().__init__(id_p, nama)
-        self.__kecerahan = 0
         self.kecerahan = kecerahan
+        super().__init__(id_p, nama)
 
     @property
     def kecerahan(self) -> int:
@@ -74,10 +86,8 @@ class LampuPintar(PerangkatPintar):
 
     @kecerahan.setter
     def kecerahan(self, val: int) -> None:
-        if 0 <= val <= 100:
-            self.__kecerahan = val
-        else:
-            print(f"Error: Kecerahan {val}% ditolak (wajib 0-100)")
+        _validasi_rentang("Kecerahan", val, 0, 100, "%")
+        self.__kecerahan = val
 
     def info(self) -> str:
         return f"{self.status_dasar()} | Kecerahan: {self.__kecerahan}%"
@@ -89,9 +99,8 @@ class LampuPintar(PerangkatPintar):
 
 class ACPintar(PerangkatPintar):
     def __init__(self, id_p: str, nama: str, suhu: int):
-        super().__init__(id_p, nama)
-        self.__suhu = 24
         self.suhu = suhu
+        super().__init__(id_p, nama)
 
     @property
     def suhu(self) -> int:
@@ -99,10 +108,8 @@ class ACPintar(PerangkatPintar):
 
     @suhu.setter
     def suhu(self, val: int) -> None:
-        if 16 <= val <= 30:
-            self.__suhu = val
-        else:
-            print(f"Error: Suhu {val}C ditolak (wajib 16-30)")
+        _validasi_rentang("Suhu", val, 16, 30, "C")
+        self.__suhu = val
 
     def info(self) -> str:
         return f"{self.status_dasar()} | Suhu: {self.__suhu}C"
@@ -209,8 +216,21 @@ if __name__ == "__main__":
         print(f"[ID] {e}")
         hub.catat_log(f"Gagal membuat perangkat: {e}")
 
-    lampu1.kecerahan = 150
-    ac1.suhu = 10
+    # Aturan 2: kecerahan di luar rentang; nilai lama tetap dipertahankan.
+    try:
+        lampu1.kecerahan = 150
+    except NilaiParameterTidakValidError as e:
+        print(f"[Parameter] {e} -> kecerahan tetap {lampu1.kecerahan}%")
+        hub.catat_log(f"Ubah kecerahan ditolak: {e}")
+
+    # Aturan 3: suhu di luar rentang; else hanya jalan jika tidak ada exception.
+    try:
+        ac1.suhu = 10
+    except NilaiParameterTidakValidError as e:
+        print(f"[Parameter] {e} -> suhu tetap {ac1.suhu}C")
+        hub.catat_log(f"Ubah suhu ditolak: {e}")
+    else:
+        hub.catat_log(f"Suhu {ac1} diubah")
 
     # Aturan 4: perangkat duplikat dalam satu ruangan.
     try:

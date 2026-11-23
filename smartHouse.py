@@ -1,9 +1,12 @@
+import re
 from abc import ABC, abstractmethod
 
 from exceptions import (
+    SmartHomeError,
     IDPerangkatTidakValidError,
     NilaiParameterTidakValidError,
     PerangkatDuplikatError,
+    JadwalTimerTidakValidError,
 )
 
 
@@ -61,7 +64,13 @@ class PerangkatPintar(ABC):
 
 
 class TimerMixin:
+    _POLA_JADWAL = re.compile(r"([01]\d|2[0-3]):[0-5]\d")
+
     def atur_timer(self, jam: str) -> None:
+        if not isinstance(jam, str) or not self._POLA_JADWAL.fullmatch(jam):
+            raise JadwalTimerTidakValidError(
+                f"Jadwal {jam!r} tidak valid (wajib format HH:MM, 00:00-23:59)"
+            )
         self._jadwal = jam
 
 
@@ -117,9 +126,9 @@ class ACPintar(PerangkatPintar):
 
 class CCTVPintar(PerangkatPintar, TimerMixin):
     def __init__(self, id_p: str, nama: str, jadwal: str):
-        super().__init__(id_p, nama)
         self.atur_timer(jadwal)
         self.__merekam = False
+        super().__init__(id_p, nama)
 
     def mulai_rekam(self) -> None:
         self.nyalakan()
@@ -239,6 +248,15 @@ if __name__ == "__main__":
     except PerangkatDuplikatError as e:
         print(f"[Duplikat] {e}")
         hub.catat_log(f"Tambah perangkat ditolak: {e}")
+
+    # Aturan 5: format jadwal timer, ditangkap lewat base exception SmartHomeError.
+    for jadwal in ["25:00", "7:30", ""]:
+        try:
+            CCTVPintar("C02", "CCTV Belakang", jadwal)
+        except SmartHomeError as e:
+            print(f"[{type(e).__name__}] {e}")
+        finally:
+            hub.catat_log(f"Percobaan jadwal {jadwal!r} selesai diproses")
 
     print(f"\n{r_tamu.info_ruangan()}")
     # lampu_duplikat valid sebagai objek (hanya ditolak oleh ruangan), jadi ikut terhitung.

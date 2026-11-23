@@ -103,3 +103,63 @@ class JadwalTimerTidakValidError(SmartHomeError):
     """Dilempar ketika format jadwal timer tidak sesuai format 24 jam (HH:MM)."""
     pass
 ```
+
+---
+
+## 3. Implementasi pada Kelas Domain
+
+| Aturan | Sebelum | Sesudah |
+| :-: | :--- | :--- |
+| 1 | `raise ValueError(...)` | `raise IDPerangkatTidakValidError(...)` |
+| 2 & 3 | Setter hanya `print("Error ...")`, nilai salah diabaikan diam-diam | Setter melempar `NilaiParameterTidakValidError` (rentang salah atau bukan angka) |
+| 4 | `tambah_perangkat()` langsung `append` | Cek `p in daftar` (memakai `__eq__`) lalu lempar `PerangkatDuplikatError` |
+| 5 | `atur_timer()` langsung menyimpan nilai | Validasi regex `HH:MM` 24 jam, lempar `JadwalTimerTidakValidError` |
+
+Perbaikan pendukung:
+
+- Subclass memvalidasi parameternya **sebelum** `super().__init__()`, sehingga `PerangkatPintar.total_perangkat` hanya bertambah untuk objek yang berhasil dibuat.
+- Ditambahkan `__hash__` (pasangan `__eq__`) agar perangkat dapat dipakai di `set`/`dict`, serta property `id_perangkat`.
+- Pesan error yang tertangkap dicatat ke log `SmartHub` melalui `catat_log()`.
+
+## 4. Struktur File & Cara Menjalankan
+
+```text
+SmartHouse/
+├── exceptions.py   # Hierarki custom exception
+└── smartHouse.py   # Kelas domain + program utama (demo try/except)
+```
+
+```bash
+python smartHouse.py
+```
+
+## 5. Contoh Penanganan di Program Utama
+
+Program utama menguji kelima aturan dengan `try/except`, termasuk blok `else` dan `finally`, serta penangkapan umum lewat base exception `SmartHomeError`:
+
+```python
+try:
+    r_tamu.tambah_perangkat(LampuPintar("L01", "Lampu Cadangan", 80))
+except PerangkatDuplikatError as e:      # tangkap spesifik
+    hub.catat_log(f"Tambah perangkat ditolak: {e}")
+
+try:
+    CCTVPintar("C02", "CCTV Belakang", "25:00")
+except SmartHomeError as e:               # tangkap umum via base exception
+    print(f"[{type(e).__name__}] {e}")
+finally:
+    hub.catat_log("Percobaan jadwal selesai diproses")
+```
+
+Cuplikan output:
+
+```text
+=== Pengujian Exception Handling ===
+[ID] ID perangkat 'X' tidak valid (wajib string, minimal 2 karakter)
+[Parameter] Kecerahan 150% ditolak (wajib 0-100%) -> kecerahan tetap 20%
+[Parameter] Suhu 10C ditolak (wajib 16-30C) -> suhu tetap 22C
+[Duplikat] Perangkat dengan ID 'L01' sudah terpasang di ruangan 'Ruang Tamu'
+[JadwalTimerTidakValidError] Jadwal '25:00' tidak valid (wajib format HH:MM, 00:00-23:59)
+[JadwalTimerTidakValidError] Jadwal '7:30' tidak valid (wajib format HH:MM, 00:00-23:59)
+[JadwalTimerTidakValidError] Jadwal '' tidak valid (wajib format HH:MM, 00:00-23:59)
+```

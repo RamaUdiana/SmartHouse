@@ -24,6 +24,92 @@ Sistem **Smart Home** terdiri atas kelas `SmartHub`, `Ruangan`, `PerangkatPintar
 | 4 | **Tidak Boleh Ada Perangkat Duplikat dalam Satu Ruangan** | Menambahkan objek perangkat yang memiliki `_id_perangkat` sama dengan perangkat yang sudah terdaftar di dalam ruangan tersebut (menggunakan perbandingan `__eq__`). | `Ruangan.tambah_perangkat()` |
 | 5 | **Format Jadwal Timer Wajib `HH:MM` (24 Jam)** | Jadwal timer pada perangkat diisi dengan string kosong, format bukan `HH:MM`, atau jam/menit di luar rentang valid (`00:00`–`23:59`). | `TimerMixin.atur_timer()` (diwarisi `CCTVPintar`) |
 
+### Diagram Kelas Sistem
+
+Diagram berikut menunjukkan seluruh kelas domain, atribut, method, serta hubungan antarkelas pada sistem Smart Home. Method bertanda `[!]` merupakan lokasi pelemparan *custom exception*.
+
+```mermaid
+classDiagram
+    class SmartHub {
+        -__nama_hub: str
+        -__ruangan_list: list
+        -__log_list: list
+        +buat_ruangan(nama: str) Ruangan
+        +kontrol_perangkat(p: PerangkatPintar, nyala: bool)
+        +catat_log(pesan: str)
+        +lihat_log()
+    }
+
+    class Ruangan {
+        -__nama_ruangan: str
+        -__perangkat_list: list
+        +nama_ruangan() str «property»
+        +tambah_perangkat(p: PerangkatPintar) [!]
+        +info_ruangan() str
+    }
+
+    class PerangkatPintar {
+        <<abstract>>
+        +total_perangkat: int$
+        #_id_perangkat: str
+        #_nama: str
+        #_aktif: bool
+        +__init__(id_p: str, nama: str) [!]
+        +id_perangkat() str «property»
+        +aktif() bool «property»
+        +nyalakan()
+        +matikan()
+        +status_dasar() str
+        +info() str*
+        +__eq__(other: object) bool
+        +__hash__() int
+        +__str__() str
+        +validasi_id(kode: str) bool$
+    }
+
+    class LampuPintar {
+        -__kecerahan: int
+        +kecerahan() int «property»
+        +kecerahan.setter(val: int) [!]
+        +info() str
+        +lampu_tidur(id_p: str, nama: str) LampuPintar «classmethod»
+    }
+
+    class ACPintar {
+        -__suhu: int
+        +suhu() int «property»
+        +suhu.setter(val: int) [!]
+        +info() str
+    }
+
+    class CCTVPintar {
+        -__merekam: bool
+        +mulai_rekam()
+        +henti_rekam()
+        +info() str
+    }
+
+    class TimerMixin {
+        <<mixin>>
+        #_POLA_JADWAL: Pattern$
+        #_jadwal: str
+        +atur_timer(jam: str) [!]
+    }
+
+    SmartHub *-- Ruangan : komposisi
+    Ruangan o-- PerangkatPintar : agregasi
+    PerangkatPintar <|-- LampuPintar
+    PerangkatPintar <|-- ACPintar
+    PerangkatPintar <|-- CCTVPintar
+    TimerMixin <|-- CCTVPintar
+```
+
+**Keterangan & Cara Membaca Diagram:**
+- **Komposisi (`SmartHub *-- Ruangan`)**: `Ruangan` dibuat di dalam `SmartHub` melalui `buat_ruangan()`, sehingga `SmartHub` memiliki `Ruangan` sepenuhnya. Satu hub dapat memiliki banyak ruangan.
+- **Agregasi (`Ruangan o-- PerangkatPintar`)**: objek perangkat dibuat di luar lalu dimasukkan ke ruangan melalui `tambah_perangkat()`. Satu ruangan dapat berisi banyak perangkat, dan objek perangkat tetap dapat ada tanpa ruangan.
+- **Pewarisan & Multiple Inheritance (`<|--`)**: `LampuPintar`, `ACPintar`, dan `CCTVPintar` mewarisi kelas abstrak `PerangkatPintar`. `CCTVPintar` juga mewarisi `TimerMixin` untuk fitur jadwal timer.
+- **Visibilitas & Penanda**: `+` (*public*), `#` (*protected*, `_x`), `-` (*private*, `__x`), garis bawah (*static* / atribut kelas), miring (*abstract*), dan `[!]` (method yang melempar *custom exception*).
+
 ---
 
 ## 2. Hierarki Custom Exception
